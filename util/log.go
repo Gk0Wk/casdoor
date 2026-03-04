@@ -37,8 +37,47 @@ func getIpInfo(clientIp string) string {
 	return strings.Trim(first, "[]")
 }
 
+func getForwardedHeaderIp(forwarded string) string {
+	// RFC 7239 format example:
+	// Forwarded: for=203.0.113.43, for="[2001:db8:cafe::17]"
+	for _, part := range strings.Split(forwarded, ",") {
+		for _, token := range strings.Split(part, ";") {
+			token = strings.TrimSpace(token)
+			if !strings.HasPrefix(strings.ToLower(token), "for=") {
+				continue
+			}
+
+			ip := strings.TrimSpace(strings.TrimPrefix(token, "for="))
+			ip = strings.Trim(ip, "\"")
+			return getIpInfo(ip)
+		}
+	}
+
+	return ""
+}
+
+func getIpFromHeaders(req *http.Request) string {
+	if clientIp := req.Header.Get("X-Forwarded-For"); clientIp != "" {
+		return getIpInfo(clientIp)
+	}
+
+	if clientIp := req.Header.Get("X-Real-Ip"); clientIp != "" {
+		return getIpInfo(clientIp)
+	}
+
+	if clientIp := req.Header.Get("X-Original-Forwarded-For"); clientIp != "" {
+		return getIpInfo(clientIp)
+	}
+
+	if clientIp := getForwardedHeaderIp(req.Header.Get("Forwarded")); clientIp != "" {
+		return clientIp
+	}
+
+	return ""
+}
+
 func GetClientIpFromRequest(req *http.Request) string {
-	clientIp := req.Header.Get("x-forwarded-for")
+	clientIp := getIpFromHeaders(req)
 	if clientIp == "" {
 		ipPort := strings.Split(req.RemoteAddr, ":")
 		if len(ipPort) >= 1 && len(ipPort) <= 2 {
