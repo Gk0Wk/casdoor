@@ -43,11 +43,13 @@ func getForwardedHeaderIp(forwarded string) string {
 	for _, part := range strings.Split(forwarded, ",") {
 		for _, token := range strings.Split(part, ";") {
 			token = strings.TrimSpace(token)
-			if !strings.HasPrefix(strings.ToLower(token), "for=") {
+			lowerToken := strings.ToLower(token)
+			if !strings.HasPrefix(lowerToken, "for=") {
 				continue
 			}
 
-			ip := strings.TrimSpace(strings.TrimPrefix(token, "for="))
+			// Extract the value after "for=" while preserving the original token's casing.
+			ip := strings.TrimSpace(token[len("for="):])
 			ip = strings.Trim(ip, "\"")
 			return getIpInfo(ip)
 		}
